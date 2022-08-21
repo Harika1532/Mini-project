@@ -3,7 +3,7 @@ class ApplicationController < ActionController::Base
   include ActionController::HttpAuthentication::Basic
   protect_from_forgery with: :exception
   skip_before_action :verify_authenticity_token
-  before_action :authenticate_request
+  # before_action :authenticate_request 
   
 
   def authenticate_request

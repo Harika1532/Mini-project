@@ -14,12 +14,13 @@ class UsersController < ApplicationController
     end
     
     def show
-        if @current_user.id == params[:id].to_i
-            user=User.find(params[:id])
-            render json: user 
-        else
-            render json: { errors: "denied" }, status: 422
-        end
+        user = User.find(@current_user.id)
+        # if @current_user.id == params[:id].to_i
+        #     user=User.find(params[:id])
+        render json: user 
+        # else
+        #     render json: { errors: "denied" }, status: 422
+        # end
     end
 
     def update
@@ -39,7 +40,7 @@ class UsersController < ApplicationController
 private
     # debugger
     def user_params
-        params.require(:user).permit(:email, :password, :password_confirmation)
+        params.require(:user).permit(:email, :password, :password_confirmation, :role)
     end
 
 

@@ -1,22 +1,21 @@
 Rails.application.routes.draw do
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
-  resources :users 
-  #   resources :articles
-  # end
-   #only: [:create, :new, :show]
-  # get '/users/:email', to: 'users#show'
-  # get '/users/:id/articles', to: 'articles#index'
+  resources :users, only: [:create,:show,:update]
+  get 'users', to: 'users#show'
+  
+
+  
   get '/users/:id/myarticles', to: 'articles#myarticles'
   get '/users/:id/approved', to: 'articles#approved'
   # put '/users/:id', to: 'users#update'
   # put '/users/:id/articles/:id/approve', to: 'articles#approve' 
   #get '/users/:id', to: 'users#index'
-  resources :articles 
-  #   resources :comments
-  # end
+  resources :articles do
+    resources :comments
+  end
   #get '/articles/:id', to: 'articles#show'
   # put '/articles/:id', to: 'articles#update'
-  # put '/articles/:id/approve', to: 'articles#approve' 
+  put '/articles/:id/approve', to: 'articles#approve' 
   # delete 'users/articles/:id', to: 'articles#destroy'
   # resource :sample
   resources :categories 
@@ -24,7 +23,7 @@ Rails.application.routes.draw do
 
   # put '/categories/:id', to: 'categories#update'
 
-  resource :article_categerios
+  # resource :article_categerios
   # resources :sample, only: [:index]
   # get '/sample', to: 'sample#test'
   # Defines the root path route ("/")
