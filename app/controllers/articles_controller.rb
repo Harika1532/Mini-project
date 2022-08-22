@@ -1,17 +1,14 @@
 class ArticlesController < ApplicationController
-      
+    before_action :authenticate_request 
     
     def create
         #debugger
         article = Article.new(article_params )
         article.word_count = article.description.split.size
+        article.user_id=@current_user.id
         if article.save
-            #debugger
-            
             # render json: {"article"=>article.slice(:id,:title,:description,:user_id)}, status: 201#response_data
             render json: article, status: 201
-            
-            
         else
             render json: { errors: article.errors }, status: 422
         end
@@ -19,23 +16,23 @@ class ArticlesController < ApplicationController
     
     def show  
         article = Article.find(params[:id])
-        article.word_count = article.description.split.size
-        render json: article
+        comments = Comment.where(article_id:params[:id].to_i)
+        categories = ArticleCategory.where(article_id:params[:id].to_i) 
+        # article.word_count = article.description.split.size
+        render json: {"article":article, "categories":categories, "comments":comments.map{|comment| comment.slice(:user_id,:review)}}
+
     end
 
     def update
         article = Article.find(params[:id])
          if @current_user.id == article.user_id
-            # article = Article.find(params[:id])
             if article.update(article_params)
                 article.word_count = article.description.split.size
                 render json: article, status: 200
             end
         else
             render json: { errors: "No access" }, status: 422
-            
         end
-        
     end
 
     def destroy
@@ -46,43 +43,51 @@ class ArticlesController < ApplicationController
 
             render json: {message: "Deleted"}, status: 200
         else
-            render json: { errors: article.errors }, status: 422
+            render json: {errors: "access denied"}, status: 422
         end
     end
 
-     def index
-        
-        article = Article.all
-    
-        
-        render json: article.sort_by(&:title)
-    end
+     
 
     def approve
+        if @current_user.role == 1 or @current_user.role == 2
         
             article = Article.find(params[:id])
-            if article.update(article_params)
-                render json: article, status: 200
-            else
-                render json: { errors: article.errors }, status: 422
-            end
-
-     end
+            article.approved = true
+            article.save
+            render json: article, status: 200
+        else
+            render json: { errors: "access denied" }, status: 422
+        end
+    end
 
     def index
-        article = Article.all
-        # articles = articles.sort
+        if params[:approved]!= nil && params[:user_id]!=nil
+            article = Article.where(approved:params[:approved], user_id:params[:user_id])
+        elsif params[:approved]!=nil
+            article = Article.where(approved:params[:approved])
+        elsif params[:user_id]!=nil
+            article = Article.where(user_id:params[:user_id])
+        else 
+            article = Article.where(approved:true)
+        end
         render json: article.sort_by(&:title)
+
     end
 
     def myarticles
-        article = Article.where(user_id:User.find(params[:id]))
-        render json:article
+        article = Article.where(user_id:params[:id].to_i)
+        if @current_user.id == params[:id].to_i
+            render json:article
+        else
+
+            render json: article.where(approved:true)
+        end
     end
 
-    private
+private
 
     def article_params
-        params.require(:article).permit(:title, :description, :approved, :user_id, :word_count)
+        params.require(:article).permit(:title, :description)
     end
 end
