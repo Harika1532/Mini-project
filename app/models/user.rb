@@ -1,11 +1,7 @@
 class User < ApplicationRecord
 	has_secure_password
-	# validates_confirmation_of :password
-	# attr_accessor :password
- #  	validates :password, confirmation: true
-	 validates :password, confirmation:true
-	validates :password_confirmation, presence: true
 	has_many :articles
+	has_many :comments
 
 	def user?
 		role == 0
