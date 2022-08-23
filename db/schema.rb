@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2022_08_19_085816) do
+ActiveRecord::Schema[7.0].define(version: 2022_08_23_194137) do
   create_table "articles", force: :cascade do |t|
     t.string "title"
     t.text "description"
@@ -19,6 +19,8 @@ ActiveRecord::Schema[7.0].define(version: 2022_08_19_085816) do
     t.boolean "approved", default: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "likes_count", default: 0
+    t.integer "dislikes_count", default: 0
     t.index ["description"], name: "index_articles_on_description", unique: true
     t.index ["title"], name: "index_articles_on_title", unique: true
   end
@@ -42,6 +44,13 @@ ActiveRecord::Schema[7.0].define(version: 2022_08_19_085816) do
     t.integer "user_id"
     t.integer "article_id"
     t.text "review"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "likes", force: :cascade do |t|
+    t.integer "user_id"
+    t.integer "article_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
