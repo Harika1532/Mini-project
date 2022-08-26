@@ -1,18 +1,28 @@
 class ArticlesController < ApplicationController
     before_action :authenticate_request 
-    # before_action :set_k
     
     def create
-        #debugger
         article = Article.new(article_params)
-        article.word_count = article.description.split.size
+        if article.description != nil
+            article.word_count = article.description.split.size
+        else
+            article.word_count  = 0
+        end
         article.user_id=@current_user.id
-        article.categories = fetch_categories
-        #params[:categories].map{|i| Category.create({"name":i})}
-        # params[:categories].map{|category| ArticleCategory.create({"article_id": article.id, "category_id": category})}
+        
+        k = []
+        if !fetch_categories.empty?
+            article.categories = fetch_categories
+            k = fetch_categories.map{|i| (i.slice(:names).values)}
+            k = k.flatten
+        end
+
         if article.save
+            article = article.slice(:id,:title,:description,:word_count,:user_id,:approved,:likes_count,:dislikes_count)
+            article_hsh = article.as_json
+            article_hsh['categories'] = k
             # render json: {"article"=>article.slice(:id,:title,:description,:user_id)}, status: 201#response_data
-            render json: article, status: 201
+            render json: {"article"=>article_hsh}, status: 201
         else
             render json: { errors: article.errors }, status: 422
         end
@@ -20,53 +30,85 @@ class ArticlesController < ApplicationController
     
     def show  
         article = Article.find(params[:id])
-        comments = Comment.where(article_id:params[:id].to_i)
-        # likes = Like.where(article_id:params[:id].to_i).count
-        # categories = ArticleCategory.where(article_id:params[:id].to_i) 
-        # article.word_count = article.description.split.size
-        # k = comments.map{|comment| comment.slice(:user_id,:review)}
-        render json: {"article":article.merge  "comments":comments.map{|comment| {comment.user_id => comment.review}}}
-        # render json: article#.merge comments
+        if article.visibilty == true
+            comments = Comment.where(article_id:params[:id].to_i)
+            article_hsh = article.as_json
+            article_hsh['comments'] = comments.map{|comment| {comment.user_id => comment.review}}
+            article_hsh['categories'] = article.categories.map{|i| (i.slice(:names).values)}.flatten
+            render json: { article: article_hsh}
+        else
+            render json: {message:"article not found"}
+        end
     end
 
     def update
         article = Article.find(params[:id])
          if @current_user.id == article.user_id
-            # article = Article.find(params[:id])
+            k=[]
             if article.update(article_params)
                 article.word_count = article.description.split.size
-                render json: article, status: 200
+                k=article.categories
+                k=k.map{|i| (i.slice(:names).values)}.flatten
+                article = article.slice(:id,:title,:description,:user_id,:approved,:word_count,:likes_count,:dislikes_count)
+                article_hsh = article.as_json
+                article_hsh['categories'] = k
+                render json: {article:article_hsh}, status: 201
             end
         else
-            render json: { errors: "No access" }, status: 422
+            render json: {message: "No access" }, status: 422
         end
     end
 
     def destroy
-        #debugger
         article = Article.find(params[:id])
         if @current_user.role == 1 or @current_user.id == article.user_id 
-            article.destroy
+            article.visibilty = false
+            article.save
+
             render json: {message: "Deleted"}, status: 200
         else
-            render json: {errors: "access denied"}, status: 422
+            render json: {message: "access denied"}, status: 422
         end
     end
 
-     
+    def destroy_ids
+        if @current_user.role == 1
+            delete_ids = params[:delete].split(',').map{|i| i.to_i}
+            delete_ids.each do |i|
+                article = Article.find(i)
+                article.visibilty = false
+                article.save
+            end
+            render json: {message: "Deleted"}, status: 200
+        else
+           render json: {errors: "access denied"}, status: 422 
+        end
+            
+    end
+
+    def recover
+        if @current_user.role == 1
+            article = Article.find(params[:id])
+            article.visibilty = true
+            article.save
+            render json: article
+        end
+    end
 
     def approve
         if @current_user.role == 1 or @current_user.role == 2
             article = Article.find(params[:id])
+            article.word_count = article.description.split.size
             article.approved = true
             article.save
-            render json: article, status: 200
+            render json: {"article"=>article.slice(:id,:title,:description,:user_id,:word_count,:approved,:likes_count,:dislikes_count)}, status: 200
         else
-            render json: { errors: "access denied" }, status: 422
+            render json: { message: "access denied" }, status: 422
         end
     end
 
     def index
+
         if params[:approved]!= nil && params[:user_id]!=nil
             article = Article.where(approved:params[:approved], user_id:params[:user_id])
         elsif params[:approved]!=nil
@@ -76,38 +118,43 @@ class ArticlesController < ApplicationController
         else 
             article = Article.where(approved:true)
         end
-        render json: article.sort_by(&:title)
+        article = article.select{|i| i.visibilty == true}
+        render json: article.sort_by(&:likes_count)
 
     end
+
+    
 
     def myarticles
-        if @current_user.id == params[:id].to_i
-        article = Article.where(user_id:params[:id].to_i)
-        # if @current_user.id == params[:id].to_i
-            render json:article
-        else
-
-            render json: article.where(approved:true)
-        end
-            
+        article = Article.where(user_id:@current_user.id)
+        article = article.select{|i| i.visibilty == true}
+        render json:article.map {|i| i.slice(:id,:title,:description,:word_count,:approved,:likes_count,:dislikes_count)}
     end
 
-private
+    def get_categories
+        Category.where(name: params[:categories])
+    end
+
+    private
 
     def fetch_categories
         categories = []
-        params[:categories].each do |category|
-            if Category.where(name: category).present?
-                categories += Category.where(name: category)
-            else
-                categories << Category.create(name: category)
+        if params[:categories] != nil
+            params[:categories].each do |category|
+                if Category.where(names: category).present?
+                    categories += Category.where(names: category)
+                else
+                    categories << Category.create(names: category)
+                end
             end
+            
         end
         categories
     end
 
-
     def article_params
-        params.require(:article).permit(:title, :description, :likes_count, :dislikes_count)
+        params.require(:article).permit(:title, :description)
+
     end
 end
+
